@@ -1,13 +1,8 @@
-from passlib.context import CryptContext
 from sqlalchemy.orm import Session
-
 from app.models.user import User
 from app.schemas.user import UserCreate
+from app.core.security import hash_password
 
-pwd_context = CryptContext(schemes=["argon2"], deprecated = "auto")
-
-def hash_password(password: str):
-    return pwd_context.hash(password)
 
 def create_user(db:Session, user: UserCreate):
 
@@ -23,13 +18,13 @@ def create_user(db:Session, user: UserCreate):
     if existing_username:
         raise ValueError("Username already taken")
 
-    hashed_password = hash_password(user.password)
+   
 
     #create user object
     db_user = User(
         username = user.username,
         email = user.email,
-        password = hashed_password
+        password = hash_password(user.password)
     )
 
 
