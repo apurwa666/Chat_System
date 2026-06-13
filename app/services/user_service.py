@@ -38,3 +38,6 @@ def create_user(db:Session, user: UserCreate):
 
 def get_users(db:Session):
     return db.query(User).all()
+
+def get_user_by_username(db, username:str):
+    return db.query(User).filter(User.username == username).first()

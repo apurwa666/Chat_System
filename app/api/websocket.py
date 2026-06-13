@@ -1,12 +1,13 @@
-from fastapi import APIRouter, WebSocket, WebSocketDisconnect, Query, Depends
+from fastapi import APIRouter, WebSocket, WebSocketDisconnect, Query
 from app.core.connection_manager import ConnectionManager
 from jose import jwt, JWTError
 import os
-from app.dependencies.db import get_db
 from sqlalchemy.orm import Session
 from app.database import SessionLocal
 from app.services.message_service import create_message
-
+from app.schemas.ws_message import WSMessage
+from app.websocket.handlers.message_handler import handle_message
+from app.websocket.handlers.init_handler import handle_init
 
 router = APIRouter()
 manager = ConnectionManager()
@@ -35,26 +36,24 @@ async def websocket_endpoint(websocket: WebSocket, token: str = Query(...)):
     #listen for messages
     try:
         while True:
-            data = await websocket.receive_json()
+            raw_data = await websocket.receive_json()
+            msg = WSMessage(**raw_data)
 
-            receiver_id = data["receiver_id"]
-            content = data["content"]
+            if msg.type == "init":
+                await handle_init(
+                    db = db,
+                    websocket = websocket,
+                    user_id= user_id,
+                    payload = msg.payload
+                )
 
-            #1. save to database
-
-            message = create_message(
-                db= db,
-                sender_id = user_id,
-                receiver_id = receiver_id,
-                content = content
-            )
-
-            #2. await realtime
-            await manager.send_message(receiver_id, {
-                "id": message.id,
-                "sender_id": user_id,
-                "content": content
-            })
+            elif msg.type == "message":
+                await handle_message(
+                    db = db,
+                    manager = manager,
+                    user_id= user_id,
+                    payload= msg.payload
+                )
 
     except WebSocketDisconnect:
         manager.disconnect(user_id)
