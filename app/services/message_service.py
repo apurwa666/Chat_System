@@ -15,10 +15,16 @@ def create_message(db:Session, sender_id: int, receiver_id: int, content:str):
 
     return message
 
-def get_messages_between_users(db, user1_id:int, user2_id:int):
-    return db.query(Message).filter(
+def get_messages_between_users(db, user1_id:int, user2_id:int, limit:int = None):
+    query = db.query(Message).filter(
         or_(
             and_(Message.sender_id == user1_id, Message.receiver_id == user2_id),
             and_(Message.sender_id == user2_id, Message.receiver_id == user1_id)
         )
-    ).order_by(Message.created_at.asc()).all()
+    ).order_by(Message.created_at.asc())
+
+    if limit:
+        query = query.limit(limit)
+
+    return query.all()
+
