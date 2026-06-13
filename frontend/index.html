@@ -1,0 +1,325 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Mini Chat</title>
+
+  <style>
+    * {
+      box-sizing: border-box;
+      font-family: Inter, Arial, sans-serif;
+    }
+
+    body {
+      margin: 0;
+      height: 100vh;
+      background: linear-gradient(135deg, #eef2ff, #f8fafc);
+      display: flex;
+    }
+
+    /* MAIN WRAPPER */
+    .app {
+      width: 100%;
+      height: 100%;
+      display: flex;
+      padding: 15px;
+      gap: 15px;
+    }
+
+    /* SIDEBAR */
+    .sidebar {
+      width: 280px;
+      background: rgba(255,255,255,0.7);
+      backdrop-filter: blur(12px);
+      border-radius: 16px;
+      padding: 15px;
+      box-shadow: 0 10px 30px rgba(0,0,0,0.05);
+      display: flex;
+      flex-direction: column;
+    }
+
+    .title {
+      font-weight: 700;
+      font-size: 18px;
+      margin-bottom: 10px;
+      color: #111827;
+    }
+
+    .card {
+      background: white;
+      border-radius: 12px;
+      padding: 10px;
+      margin-bottom: 10px;
+      box-shadow: 0 5px 15px rgba(0,0,0,0.05);
+    }
+
+    input {
+      width: 100%;
+      padding: 10px;
+      border-radius: 10px;
+      border: 1px solid #e5e7eb;
+      outline: none;
+      margin-bottom: 8px;
+    }
+
+    button {
+      width: 100%;
+      padding: 10px;
+      border: none;
+      border-radius: 10px;
+      background: #6366f1;
+      color: white;
+      cursor: pointer;
+      font-weight: 600;
+      transition: 0.2s;
+    }
+
+    button:hover {
+      background: #4f46e5;
+    }
+
+    .chat-list {
+      flex: 1;
+      overflow-y: auto;
+      margin-top: 10px;
+    }
+
+    .chat-item {
+      padding: 10px;
+      border-radius: 10px;
+      margin-bottom: 8px;
+      background: #f9fafb;
+      cursor: pointer;
+      transition: 0.2s;
+    }
+
+    .chat-item:hover {
+      background: #eef2ff;
+    }
+
+    /* MAIN CHAT */
+    .main {
+      flex: 1;
+      background: rgba(255,255,255,0.6);
+      backdrop-filter: blur(12px);
+      border-radius: 16px;
+      display: flex;
+      flex-direction: column;
+      box-shadow: 0 10px 30px rgba(0,0,0,0.05);
+      overflow: hidden;
+    }
+
+    .header {
+      padding: 15px;
+      background: white;
+      font-weight: 600;
+      border-bottom: 1px solid #eee;
+    }
+
+    .messages {
+      flex: 1;
+      padding: 15px;
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .msg {
+      max-width: 60%;
+      padding: 10px 12px;
+      border-radius: 12px;
+      font-size: 14px;
+      line-height: 1.4;
+    }
+
+    .me {
+      align-self: flex-end;
+      background: #6366f1;
+      color: white;
+      border-bottom-right-radius: 4px;
+    }
+
+    .other {
+      align-self: flex-start;
+      background: #e5e7eb;
+      color: #111827;
+      border-bottom-left-radius: 4px;
+    }
+
+    .typing {
+      font-size: 12px;
+      color: #6b7280;
+      padding: 0 15px;
+      height: 18px;
+    }
+
+    .input-box {
+      display: flex;
+      padding: 12px;
+      gap: 10px;
+      background: white;
+      border-top: 1px solid #eee;
+    }
+
+    .input-box input {
+      flex: 1;
+      margin: 0;
+    }
+
+    .input-box button {
+      width: 90px;
+    }
+
+  </style>
+</head>
+
+<body>
+
+<div class="app">
+
+  <!-- SIDEBAR -->
+  <div class="sidebar">
+
+    <div class="title">⚡ Mini Chat</div>
+
+    <div class="card">
+      <input id="token" placeholder="JWT Token" />
+      <button onclick="connect()">Connect</button>
+    </div>
+
+    <div class="card">
+      <input id="username" placeholder="Add friend by username" />
+      <button onclick="sendFriendRequest()">Send Request</button>
+      <div id="friendStatus" style="font-size:12px;margin-top:5px;"></div>
+    </div>
+
+    <div class="title" style="margin-top:10px;">Chats</div>
+    <div class="chat-list" id="chatList"></div>
+
+  </div>
+
+  <!-- MAIN -->
+  <div class="main">
+
+    <div class="header" id="activeChat">
+      Select a chat
+    </div>
+
+    <div class="messages" id="messages"></div>
+
+    <div class="typing" id="typing"></div>
+
+    <div class="input-box">
+      <input id="message" placeholder="Type a message..." />
+      <button onclick="sendMessage()">Send</button>
+    </div>
+
+  </div>
+
+</div>
+
+<script>
+
+let ws;
+let activeUser = null;
+let token = "";
+
+/* CONNECT */
+function connect() {
+  token = document.getElementById("token").value;
+
+  ws = new WebSocket(`ws://127.0.0.1:8000/ws?token=${token}`);
+
+  ws.onopen = () => {
+    console.log("connected");
+  };
+
+  ws.onmessage = (event) => {
+    const data = JSON.parse(event.data);
+
+    if (data.type === "message") {
+      if (data.payload.sender_id === activeUser) {
+        addMessage("other", data.payload.content);
+      }
+    }
+
+    if (data.type === "typing") {
+      document.getElementById("typing").innerText =
+        `User ${data.payload.sender_id} is typing...`;
+
+      setTimeout(() => {
+        document.getElementById("typing").innerText = "";
+      }, 1200);
+    }
+  };
+}
+
+/* FRIEND REQUEST */
+function sendFriendRequest() {
+  const username = document.getElementById("username").value;
+
+  fetch(`http://127.0.0.1:8000/friends/request/${username}`, {
+    method: "POST",
+    headers: {
+      "Authorization": "Bearer " + token
+    }
+  })
+  .then(r => r.json())
+  .then(d => {
+    document.getElementById("friendStatus").innerText =
+      "Request sent ✔";
+  });
+}
+
+/* CHAT */
+function openChat(id) {
+  activeUser = id;
+  document.getElementById("activeChat").innerText = "Chat with User " + id;
+  document.getElementById("messages").innerHTML = "";
+}
+
+/* SEND MESSAGE */
+function sendMessage() {
+  const msg = document.getElementById("message").value;
+
+  if (!activeUser) return alert("Select user");
+
+  ws.send(JSON.stringify({
+    type: "message",
+    payload: {
+      receiver_id: activeUser,
+      content: msg
+    }
+  }));
+
+  addMessage("me", msg);
+  document.getElementById("message").value = "";
+}
+
+/* UI */
+function addMessage(type, text) {
+  const div = document.createElement("div");
+  div.className = "msg " + type;
+  div.innerText = text;
+  document.getElementById("messages").appendChild(div);
+}
+
+/* DEMO USERS */
+function loadChats() {
+  const users = [1, 2, 3];
+
+  users.forEach(u => {
+    const div = document.createElement("div");
+    div.className = "chat-item";
+    div.innerText = "User " + u;
+    div.onclick = () => openChat(u);
+    document.getElementById("chatList").appendChild(div);
+  });
+}
+
+loadChats();
+
+</script>
+
+</body>
+</html>

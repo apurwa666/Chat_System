@@ -2,7 +2,7 @@ from fastapi import WebSocket
 
 class ConnectionManager:
     def __init__(self):
-        self.active_connections = {}
+        self.active_connections: dict[int, WebSocket] = {}
 
     async def connect(self, user_id: int, websocket: WebSocket):
         await websocket.accept()
@@ -14,3 +14,9 @@ class ConnectionManager:
     async def send_message(self, user_id: int, message: dict):
         if user_id in self.active_connections:
             await self.active_connections[user_id].send_json(message)
+
+    def get_online_users(self):
+        return list(self.active_connections.keys())
+    
+    def is_user_online(self, user_id:int):
+        return user_id in self.active_connections

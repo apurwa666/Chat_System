@@ -4,10 +4,11 @@ from jose import jwt, JWTError
 import os
 from sqlalchemy.orm import Session
 from app.database import SessionLocal
-from app.services.message_service import create_message
 from app.schemas.ws_message import WSMessage
 from app.websocket.handlers.message_handler import handle_message
 from app.websocket.handlers.init_handler import handle_init
+from app.services.friend_service import are_friends
+from app.websocket.handlers.typing_handler import handle_typing
 
 router = APIRouter()
 manager = ConnectionManager()
@@ -48,11 +49,23 @@ async def websocket_endpoint(websocket: WebSocket, token: str = Query(...)):
                 )
 
             elif msg.type == "message":
+                if not are_friends(db, user_id, msg.payload["receiver_id"]):
+                    await websocket.send_json({
+                        "type": "error",
+                        "payload": "You are not friends with this person"
+                    })
+                    continue
                 await handle_message(
                     db = db,
                     manager = manager,
                     user_id= user_id,
                     payload= msg.payload
+                )
+            elif msg.type == "typing":
+                await handle_typing(
+                    manager=manager,
+                    user_id=user_id,
+                    payload=msg.payload
                 )
 
     except WebSocketDisconnect:
