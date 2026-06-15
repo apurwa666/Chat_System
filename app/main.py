@@ -6,9 +6,18 @@ from app.models import user, message
 from app.api.chat import router as chat_router
 from app.api.websocket import router as ws_router
 from app.api.user import router as user_router
+from fastapi.middleware.cors import CORSMiddleware
+from app.api.friend import router as friend_router
 
 app = FastAPI()
 
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],  # for dev (later restrict this)
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 #create tables on startup
 Base.metadata.create_all(bind=engine)
 
@@ -16,6 +25,7 @@ Base.metadata.create_all(bind=engine)
 app.include_router(auth_router)
 app.include_router(chat_router)
 app.include_router(user_router)
+app.include_router(friend_router)
 app.include_router(ws_router)
 @app.get("/")
 def root():

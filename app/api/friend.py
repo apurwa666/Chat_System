@@ -9,7 +9,7 @@ from app.core.security import get_current_user
 router = APIRouter(prefix = "/friends", tags = ["Friends"])
 
 @router.post("/request/{username}")
-def request_friend(username:str, db: Session = Depends(get_db), current_user = Depends(get_db)):
+def request_friend(username:str, db: Session = Depends(get_db), current_user = Depends(get_current_user)):
 
     target_user = get_user_by_username(db, username)
 
